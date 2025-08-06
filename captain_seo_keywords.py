@@ -20,7 +20,7 @@ client = GoogleAdsClient.load_from_storage(temp_config_path)
 # === 3. Podešavanja ===
 PHRASES_FILE = "phrases.txt"
 LOG_FILE = "last_run.log"
-RESULTS_FILE = "results.csv"  
+RESULTS_FILE = "results.csv"
 MAX_KEYWORDS_PER_RUN = 5
 CUSTOMER_ID = "4034856713"  # bez crtica
 
@@ -45,15 +45,15 @@ if not new_phrases:
 def fetch_keyword_data(phrase):
     try:
         service = client.get_service("KeywordPlanIdeaService")
-        keyword_seed = client.get_type("KeywordSeed")
-        keyword_seed.keywords.append(phrase)
-
         request = client.get_type("GenerateKeywordIdeasRequest")
+
         request.customer_id = CUSTOMER_ID
-        request.keyword_seed = keyword_seed
-        request.geo_target_constants.append("geoTargetConstants/2840")  # US
         request.language = "languageConstants/1000"  # English
+        request.geo_target_constants.append("geoTargetConstants/2840")  # United States
         request.include_adult_keywords = False
+
+        # Ispravno postavljanje fraze
+        request.keyword_and_url_seed.keywords.append(phrase)
 
         response = service.generate_keyword_ideas(request=request)
 
