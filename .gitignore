@@ -1,0 +1,6 @@
+*.log
+*.csv
+*.json
+*.pyc
+__pycache__/
+google-ads.yaml
