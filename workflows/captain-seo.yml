@@ -1,0 +1,37 @@
+name: Captain SEO Daily Run
+
+on:
+  schedule:
+    - cron: '0 6 * * *'  # Svaki dan u 06:00 UTC (08:00 po Srbiji)
+  workflow_dispatch:      # Omogućava ručno pokretanje iz GitHub UI
+
+jobs:
+  run-captain-seo:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install google-ads
+          pip install -r requirements.txt || true  # ako koristiš fajl, inače se preskače
+
+      - name: Run Captain SEO script
+        env:
+          GOOGLE_ADS_CREDENTIALS: ${{ secrets.GOOGLE_ADS_CREDENTIALS }}
+        run: python captain_seo_keywords.py
+
+      - name: Commit results
+        run: |
+          git config user.name "Captain SEO Bot"
+          git config user.email "captain@seo.bot"
+          git add results.csv last_run.log || true
+          git commit -m "Captain SEO: Daily update" || echo "No changes to commit"
+          git push
