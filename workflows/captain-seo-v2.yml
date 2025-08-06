@@ -1,0 +1,28 @@
+name: Captain SEO V2
+
+on:
+  workflow_dispatch:
+
+jobs:
+  run-seo:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repo
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies
+      run: pip install google-ads
+
+    - name: Clean pycache
+      run: find . -name "*.pyc" -delete
+
+    - name: Run captain_seo_keywords
+      run: python captain_seo_keywords.py
+      env:
+        GOOGLE_ADS_CREDENTIALS: ${{ secrets.GOOGLE_ADS_CREDENTIALS }}
