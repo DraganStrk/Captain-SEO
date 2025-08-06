@@ -20,7 +20,7 @@ client = GoogleAdsClient.load_from_storage(temp_config_path)
 # === 3. Podešavanja ===
 PHRASES_FILE = "phrases.txt"
 LOG_FILE = "last_run.log"
-RESULTS_FILE = "results.csv"
+RESULTS_FILE = "results.csv"  
 MAX_KEYWORDS_PER_RUN = 5
 CUSTOMER_ID = "4034856713"  # bez crtica
 
