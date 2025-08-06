@@ -1,98 +1,116 @@
-import os
+import argparse
 import csv
-import time
-import tempfile
+import os
+from dotenv import load_dotenv
 from google.ads.googleads.client import GoogleAdsClient
 from google.ads.googleads.errors import GoogleAdsException
 
-# === 1. Kreiraj privremeni credentials.yaml iz GitHub Secret-a ===
-credentials_content = os.getenv("GOOGLE_ADS_CREDENTIALS")
-if not credentials_content:
-    raise Exception("Missing GOOGLE_ADS_CREDENTIALS environment variable.")
+# === UCITAJ ENV VARIJABLE ===
+load_dotenv()
 
-with tempfile.NamedTemporaryFile(delete=False, suffix=".yaml", mode="w") as temp_config:
-    temp_config.write(credentials_content)
-    temp_config_path = temp_config.name
+developer_token = os.getenv("GOOGLE_ADS_DEVELOPER_TOKEN")
+client_id = os.getenv("GOOGLE_ADS_CLIENT_ID")
+client_secret = os.getenv("GOOGLE_ADS_CLIENT_SECRET")
+refresh_token = os.getenv("GOOGLE_ADS_REFRESH_TOKEN")
+customer_id = os.getenv("GOOGLE_ADS_CUSTOMER_ID")
 
-# === 2. Učitaj Google Ads klijent ===
-client = GoogleAdsClient.load_from_storage(temp_config_path)
+# === ARGUMENTI ===
+parser = argparse.ArgumentParser(description="Captain SEO Keyword Generator")
+parser.add_argument("--theme", type=str, help="Main topic to generate seed phrases from phrases.txt")
+parser.add_argument("--phrases_file", type=str, help="Path to TXT/CSV file with seed phrases (optional)")
+parser.add_argument("--min_search", type=int, default=1000, help="Minimum monthly search volume")
+parser.add_argument("--limit", type=int, default=100, help="Maximum number of keyword results to return")
+args = parser.parse_args()
 
-# === 3. Podešavanja ===
-PHRASES_FILE = "phrases.txt"
-LOG_FILE = "last_run.log"
-RESULTS_FILE = "results.csv"
-MAX_KEYWORDS_PER_RUN = 5
-CUSTOMER_ID = "4034856713"  # bez crtica
+# === FUNKCIJE ===
 
-# === 4. Učitaj fraze ===
-with open(PHRASES_FILE, "r", encoding="utf-8") as f:
-    all_phrases = [line.strip() for line in f if line.strip()]
+def read_last_run_log():
+    if not os.path.exists("last_run.log"):
+        return set()
+    with open("last_run.log", "r", encoding="utf-8") as f:
+        return set(line.strip() for line in f.readlines())
 
-# === 5. Učitaj već obrađene fraze ===
-if os.path.exists(LOG_FILE):
-    with open(LOG_FILE, "r", encoding="utf-8") as f:
-        processed = set(line.strip() for line in f)
-else:
-    processed = set()
+def update_last_run_log(phrases):
+    with open("last_run.log", "a", encoding="utf-8") as f:
+        for phrase in phrases:
+            f.write(phrase + "\n")
 
-# === 6. Filtriraj nove fraze ===
-new_phrases = [p for p in all_phrases if p not in processed][:MAX_KEYWORDS_PER_RUN]
-if not new_phrases:
-    print("Nema novih fraza za obradu.")
-    exit(0)
+def generate_seed_keywords(theme, template_file="phrases.txt"):
+    if not os.path.exists(template_file):
+        print("❌ Template file phrases.txt not found.")
+        exit(1)
+    with open(template_file, "r", encoding="utf-8") as f:
+        lines = f.readlines()
+    return [line.strip().replace("{theme}", theme.strip()) for line in lines if "{theme}" in line]
 
-# === 7. Funkcija za dohvat statistike ===
-def fetch_keyword_data(phrase):
-    try:
-        service = client.get_service("KeywordPlanIdeaService")
-        request = client.get_type("GenerateKeywordIdeasRequest")
+def load_phrases():
+    if args.theme:
+        return generate_seed_keywords(args.theme)
+    elif args.phrases_file and os.path.exists(args.phrases_file):
+        with open(args.phrases_file, "r", encoding="utf-8") as f:
+            return [line.strip() for line in f.readlines() if line.strip()]
+    else:
+        print("❌ Must provide either --theme or --phrases_file.")
+        exit(1)
 
-        request.customer_id = CUSTOMER_ID
-        request.language = "languageConstants/1000"  # English
-        request.geo_target_constants.append("geoTargetConstants/2840")  # United States
-        request.include_adult_keywords = False
+def init_google_ads_client():
+    return GoogleAdsClient.load_from_dict({
+        "developer_token": developer_token,
+        "client_id": client_id,
+        "client_secret": client_secret,
+        "refresh_token": refresh_token,
+        "login_customer_id": customer_id,
+    })
 
-        # Ispravno postavljanje fraze
-        request.keyword_and_url_seed.keywords.append(phrase)
+# === GLAVNA FUNKCIJA ===
 
-        response = service.generate_keyword_ideas(request=request)
+def main():
+    already_done = read_last_run_log()
+    seed_phrases = load_phrases()
+    to_process = [phrase for phrase in seed_phrases if phrase not in already_done][:args.limit]
 
-        for idea in response:
-            return {
-                "keyword": idea.text,
-                "avg_monthly_searches": idea.keyword_idea_metrics.avg_monthly_searches,
-                "competition": idea.keyword_idea_metrics.competition.name,
-                "low_top_of_page_bid": idea.keyword_idea_metrics.low_top_of_page_bid_micros / 1_000_000,
-                "high_top_of_page_bid": idea.keyword_idea_metrics.high_top_of_page_bid_micros / 1_000_000,
-            }
+    print(f"🔍 Generating keywords for {len(to_process)} new seed phrases...")
 
-    except GoogleAdsException as ex:
-        print(f"Greška za frazu '{phrase}': {ex}")
-        return None
+    client = init_google_ads_client()
+    keyword_service = client.get_service("KeywordPlanIdeaService")
 
-# === 8. Obrada fraza ===
-results = []
+    keyword_ideas = []
 
-for phrase in new_phrases:
-    print(f"Obrađujem: {phrase}")
-    data = fetch_keyword_data(phrase)
-    if data:
-        results.append(data)
-    time.sleep(1)  # izbegavanje prebrzih zahteva
+    for phrase in to_process:
+        try:
+            response = keyword_service.generate_keyword_ideas(
+                customer_id=customer_id,
+                language="1000",  # English
+                geo_target_constants=["2840"],  # USA
+                keyword_plan_network=1,  # GOOGLE_SEARCH
+                keyword_seed={"keywords": [phrase]},
+            )
 
-# === 9. Upis rezultata u CSV ===
-fields = ["keyword", "avg_monthly_searches", "competition", "low_top_of_page_bid", "high_top_of_page_bid"]
-file_exists = os.path.exists(RESULTS_FILE)
+            for idea in response:
+                text = idea.text
+                volume = idea.keyword_idea_metrics.avg_monthly_searches
+                competition = idea.keyword_idea_metrics.competition.name
+                cpc_micros = idea.keyword_idea_metrics.high_top_of_page_bid_micros or 0
+                cpc = round(cpc_micros / 1_000_000, 2)
 
-with open(RESULTS_FILE, "a", newline="", encoding="utf-8") as f:
-    writer = csv.DictWriter(f, fieldnames=fields)
-    if not file_exists:
-        writer.writeheader()
-    writer.writerows(results)
+                if volume >= args.min_search and len(text.split()) >= 3:
+                    keyword_ideas.append((text, volume, competition, cpc))
 
-# === 10. Ažuriraj log ===
-with open(LOG_FILE, "a", encoding="utf-8") as f:
-    for phrase in new_phrases:
-        f.write(phrase + "\n")
+        except GoogleAdsException as ex:
+            print(f"⚠️ Error for phrase '{phrase}': {ex}")
 
-print(f"Završeno. Obradjeno fraza: {len(new_phrases)}.")
+    print(f"✅ Found {len(keyword_ideas)} keywords with search volume ≥ {args.min_search}.")
+
+    # Snimi rezultate
+    with open("results.csv", "w", newline="", encoding="utf-8") as f:
+        writer = csv.writer(f)
+        writer.writerow(["Keyword", "Search Volume", "Competition", "CPC (USD)"])
+        for row in keyword_ideas[:args.limit]:
+            writer.writerow(row)
+
+    # Ažuriraj log
+    update_last_run_log(to_process)
+    print("📦 Saved to results.csv and updated last_run.log.")
+
+if __name__ == "__main__":
+    main()
