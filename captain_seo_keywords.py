@@ -122,7 +122,7 @@ def append_to_google_sheet(all_results, sheet_name, service_account_file):
 
     existing = sheet.get_all_values()
 
-    # Ako je sheet prazan, dodaj zaglavlja
+    # Ako je sheet prazan, dodaj Captain SEO Fishing Keywords
     if not existing:
         header = ["Keyword", "Search Volume", "Competition", "CPC", "Seed Phrase", "Date"]
         sheet.append_row(header, value_input_option='USER_ENTERED')
@@ -194,6 +194,7 @@ def main():
         append_to_google_sheet(all_results, sheet_name, service_account_file)
         save_last_run_log("data/last_run.log", templates)
         remove_used_phrases("phrases.txt", templates)
+        print(f"🧹 Removing used phrases: {templates}")
         print(f"✅ Found {len(all_results)} keywords with search volume ≥ {args.min_search}.")
         print("📦 Saved to results.csv and updated last_run.log.")
     else:
