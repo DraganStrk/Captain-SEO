@@ -6,3 +6,4 @@ __pycache__/
 google-ads.yaml
 get_refresh_token.py
 .env
+sheet_credentials.json
