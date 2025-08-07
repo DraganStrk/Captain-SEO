@@ -158,8 +158,8 @@ def main():
         args.limit = max_calls
 
     # === Custom definitions ===
-    sheet_name = f"Captain SEO Fishing Keywords"  # You can add date if needed
-    service_account_file = "google_sheet_credentials.json"  # Adjust if your file has a different name
+    sheet_name = f"Captain SEO Fishing Keywords"
+    service_account_file = "google_sheet_credentials.json"
 
     # === Load seed phrases ===
     already_processed = load_last_run_log("data/last_run.log")
@@ -189,16 +189,22 @@ def main():
                     idea.text, volume, competition, round(cpc, 2), phrase, today
                 ])
 
-    if all_results:
-        write_to_csv(all_results)
-        append_to_google_sheet(all_results, sheet_name, service_account_file)
+    # ⬇️ Ako nije našao nijedan dobar keyword
+    if not all_results:
+        print("⚠️ No keywords met the criteria.")
         save_last_run_log("data/last_run.log", templates)
         remove_used_phrases("phrases.txt", templates)
-        print(f"✅ Found {len(all_results)} keywords with search volume ≥ {args.min_search}.")
-        print("📦 Saved to results.csv and updated last_run.log.")
-    else:
-        print("⚠️ No keywords met the criteria.")
+        return
 
+    # ⬇️ Ako jeste našao, piši sve
+    write_to_csv(all_results)
+    append_to_google_sheet(all_results, sheet_name, service_account_file)
+    save_last_run_log("data/last_run.log", templates)
+    remove_used_phrases("phrases.txt", templates)
+    print(f"✅ Found {len(all_results)} keywords with search volume ≥ {args.min_search}.")
+    print("📦 Saved to results.csv and updated last_run.log.")
+    print(f"🧹 Removing {len(templates)} used phrases from phrases.txt")
+    print(f"🧾 Used phrases:\n{templates}")
 
 
 
