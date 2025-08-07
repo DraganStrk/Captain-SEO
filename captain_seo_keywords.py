@@ -135,9 +135,9 @@ def append_to_google_sheet(all_results, sheet_name, service_account_file):
         )
         gsf.format_cell_range(sheet, 'A1:F1', fmt)
 
-    # Dodaj podatke
-    for row in all_results:
-        sheet.append_row(row, value_input_option='USER_ENTERED')
+    # Dodaj podatke odjednom
+    sheet.append_rows(all_results, value_input_option='USER_ENTERED')
+
 
     print(f"🟢 Appended {len(all_results)} rows to Google Sheet '{sheet_name}'.")
 
@@ -194,7 +194,6 @@ def main():
         append_to_google_sheet(all_results, sheet_name, service_account_file)
         save_last_run_log("data/last_run.log", templates)
         remove_used_phrases("phrases.txt", templates)
-        print(f"🧹 Removing used phrases: {templates}")
         print(f"✅ Found {len(all_results)} keywords with search volume ≥ {args.min_search}.")
         print("📦 Saved to results.csv and updated last_run.log.")
     else:
