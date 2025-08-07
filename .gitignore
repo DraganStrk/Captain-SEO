@@ -2,9 +2,11 @@
 *.csv
 *.json
 *.pyc
+*.tex
 __pycache__/
 google-ads.yaml
 get_refresh_token.py
 .env
 sheet_credentials.json
 phrases.txt
+google_sheet_credentials.json
