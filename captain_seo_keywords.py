@@ -43,6 +43,20 @@ def save_last_run_log(log_file, phrases):
         for phrase in phrases:
             f.write(phrase + "\n")
 
+def remove_used_phrases(phrase_file, used_phrases):
+    if not os.path.exists(phrase_file):
+        return
+
+    with open(phrase_file, "r", encoding="utf-8") as file:
+        lines = [line.strip() for line in file if line.strip()]
+
+    remaining = [line for line in lines if line not in used_phrases]
+
+    with open(phrase_file, "w", encoding="utf-8") as file:
+        for line in remaining:
+            file.write(line + "\n")
+
+
 
 def init_google_ads_client():
     return GoogleAdsClient.load_from_dict({
@@ -179,6 +193,7 @@ def main():
         write_to_csv(all_results)
         append_to_google_sheet(all_results, sheet_name, service_account_file)
         save_last_run_log("data/last_run.log", templates)
+        remove_used_phrases("phrases.txt", templates)
         print(f"✅ Found {len(all_results)} keywords with search volume ≥ {args.min_search}.")
         print("📦 Saved to results.csv and updated last_run.log.")
     else:
