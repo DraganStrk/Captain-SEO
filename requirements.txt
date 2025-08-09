@@ -1,2 +1,4 @@
-google-ads==22.0.0
-google-cloud-storage==2.14.0
+google-ads>=24.0.0
+grpcio>=1.60.0
+protobuf>=4.25.0
+google-api-core>=2.19.0
